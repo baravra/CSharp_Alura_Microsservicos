@@ -7,6 +7,7 @@ using RestauranteService.AsyncDataServices;
 using RestauranteService.Data;
 using RestauranteService.Dtos;
 using RestauranteService.Http;
+using RestauranteService.ItemServiceHttpClient;
 using RestauranteService.Models;
 
 namespace RestauranteService.Controllers;
@@ -19,17 +20,20 @@ public class RestauranteController : ControllerBase
     private readonly IMapper _mapper;
     private readonly IItemHttpClient _itemHttpClient;
     private readonly IMessageBusClient _messageBusClient;
+    private IItemServiceHttpClient _itemServiceHttpClient;
 
     public RestauranteController(
         IRestauranteRepository repository,
         IMapper mapper,
         IItemHttpClient itemClient,
-        IMessageBusClient messageBusClient)
+        IMessageBusClient messageBusClient,
+        IItemServiceHttpClient itemServiceHttpClient)
     {
         _repository = repository;
         _mapper = mapper;
         _itemHttpClient = itemClient;
         _messageBusClient = messageBusClient;
+        _itemServiceHttpClient = itemServiceHttpClient;
     }
 
     [HttpGet]
@@ -42,16 +46,16 @@ public class RestauranteController : ControllerBase
     }
 
     [HttpGet("{id}", Name = "GetRestauranteById")]
-    public ActionResult<RestauranteReadDto> GetRestauranteById(int id)
-    {
-        var restaurante = _repository.GetRestauranteById(id);
-        if (restaurante != null)
+        public ActionResult<RestauranteReadDto> GetRestauranteById(int id)
         {
-            return Ok(_mapper.Map<RestauranteReadDto>(restaurante));
-        }
+            var restaurante = _repository.GetRestauranteById(id);
+            if (restaurante != null)
+            {
+                return Ok(_mapper.Map<RestauranteReadDto>(restaurante));
+            }
 
-        return NotFound();
-    }
+            return NotFound();
+        }
 
     [HttpPost]
     public async Task<ActionResult<RestauranteReadDto>> CreateRestaurante(RestauranteCreateDto restauranteCreateDto)
@@ -61,7 +65,7 @@ public class RestauranteController : ControllerBase
         _repository.SaveChanges();
 
         var restauranteReadDto = _mapper.Map<RestauranteReadDto>(restaurante);
-
+        _itemServiceHttpClient.EnviaRestauranteParaItemService(restauranteReadDto);
 
         await _itemHttpClient.EnviaRestauranteParaItem(restauranteReadDto);
 
